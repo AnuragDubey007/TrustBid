@@ -1,0 +1,1288 @@
+import { useState, useEffect } from 'react';
+import { useAuction } from './hooks/useAuction';
+
+import Navbar from './components/layout/Navbar';
+import ToastContainer from './components/ui/Toast';
+
+import HeroView from './components/views/HeroView';
+import CreateView from './components/views/CreateView';
+import ListingView from './components/views/ListingView';
+import DetailView from './components/views/DetailView';
+
+import BidModal from './components/modals/BidModal';
+import DeleteModal from './components/modals/DeleteModal';
+
+export default function App() {
+  // ── Theme ──────────────────────────────────────────────────────────────────
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'light') {
+      root.classList.add('light-mode');
+    } else {
+      root.classList.remove('light-mode');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  function toggleTheme() {
+    setTheme((t) => (t === 'light' ? 'dark' : 'light'));
+  }
+
+  // ── Navigation ─────────────────────────────────────────────────────────────
+  const [currentView, setCurrentView] = useState('hero');
+  const [currentDetailRfqId, setCurrentDetailRfqId] = useState(null);
+
+  function navigate(view) {
+    setCurrentView(view);
+  }
+
+  function openDetail(rfqId) {
+    setCurrentDetailRfqId(rfqId);
+    setCurrentView('detail');
+  }
+
+  // ── Data & business logic ──────────────────────────────────────────────────
+  const {
+    allData,
+    getRFQs,
+    getBidsForRFQ,
+    getLogsForRFQ,
+    stats,
+    toasts,
+    createRFQ,
+    deleteRFQ,
+    submitBid,
+  } = useAuction();
+
+  // ── Modals ─────────────────────────────────────────────────────────────────
+  const [bidModalOpen, setBidModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null); // rfqId
+
+  function openDeleteModal(rfqId) {
+    setDeleteTarget(rfqId);
+  }
+
+  async function handleDelete() {
+    await deleteRFQ(deleteTarget);
+    setDeleteTarget(null);
+    // If we're viewing the deleted auction, go back to listing
+    if (currentView === 'detail' && currentDetailRfqId === deleteTarget) {
+      navigate('listing');
+    }
+  }
+
+  async function handleSubmitBid(payload) {
+    return submitBid(currentDetailRfqId, payload);
+  }
+
+  // Re-run lucide after every render (mirrors original lucide.createIcons() calls)
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  });
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  return (
+    <div className="app-root">
+      <ToastContainer toasts={toasts} />
+
+      <Navbar
+        currentView={currentView}
+        onNavigate={navigate}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+
+      {currentView === 'hero' && (
+        <HeroView stats={stats} onNavigate={navigate} />
+      )}
+
+      {currentView === 'create' && (
+        <CreateView onNavigate={navigate} onCreateRFQ={createRFQ} />
+      )}
+
+      {currentView === 'listing' && (
+        <ListingView
+          rfqs={getRFQs()}
+          getBidsForRFQ={getBidsForRFQ}
+          onNavigate={navigate}
+          onOpenDetail={openDetail}
+          onDeleteRFQ={openDeleteModal}
+        />
+      )}
+
+      {currentView === 'detail' && currentDetailRfqId && (
+        <DetailView
+          rfqId={currentDetailRfqId}
+          allData={allData}
+          getBidsForRFQ={getBidsForRFQ}
+          getLogsForRFQ={getLogsForRFQ}
+          onNavigate={navigate}
+          onOpenBidModal={() => setBidModalOpen(true)}
+        />
+      )}
+
+      {bidModalOpen && (
+        <BidModal
+          onClose={() => setBidModalOpen(false)}
+          onSubmit={handleSubmitBid}
+        />
+      )}
+
+      {deleteTarget && (
+        <DeleteModal
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={handleDelete}
+        />
+      )}
+    </div>
+  );
+}
+
+
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+
+// Navbar.jsx
+import { useEffect } from 'react';
+
+export default function Navbar({ currentView, onNavigate, theme, onToggleTheme, config }) {
+  const title = config?.platform_title || 'TrustBid';
+  const subtitle = config?.platform_subtitle || 'British Auction RFQ Platform';
+
+  return (
+    <nav
+      className="w-full border-b px-6 py-4 flex items-center justify-between"
+      style={{
+        background: 'rgba(0,0,0,0.9)',
+        backdropFilter: 'blur(12px)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
+        borderColor: 'var(--border-color)',
+      }}
+    >
+      {/* Logo */}
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
+          <i data-lucide="zap" style={{ width: 16, height: 16, color: '#000' }} />
+        </div>
+        <div>
+          <div className="font-syne font-bold text-sm tracking-wide">{title}</div>
+          <div className="font-mono text-xs text-neutral-600">{subtitle}</div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-3">
+        <button className="btn-ghost text-xs" onClick={() => onNavigate('listing')}>
+          <span className="flex items-center gap-2">
+            <i data-lucide="list" style={{ width: 14, height: 14 }} />
+            Auctions
+          </span>
+        </button>
+
+        <button
+          className="theme-toggle-btn"
+          onClick={onToggleTheme}
+          title="Toggle theme"
+        >
+          <i
+            data-lucide={theme === 'light' ? 'moon' : 'sun'}
+            style={{ width: 16, height: 16 }}
+          />
+        </button>
+
+        <button className="theme-toggle-btn" title="User Profile">
+          <i data-lucide="user" style={{ width: 16, height: 16 }} />
+        </button>
+
+        <button className="btn-primary text-xs" onClick={() => onNavigate('create')}>
+          <span className="flex items-center gap-2">
+            <i data-lucide="plus" style={{ width: 14, height: 14 }} />
+            New RFQ
+          </span>
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+
+// BidModal.jsx
+import { useState } from 'react';
+import { formatCurrency } from '../../utils/helpers';
+
+const defaultForm = {
+  carrier: '',
+  freight: '',
+  origin: '',
+  dest: '',
+  transitTime: '',
+  validity: '',
+};
+
+export default function BidModal({ onClose, onSubmit }) {
+  const [form, setForm] = useState(defaultForm);
+  const [loading, setLoading] = useState(false);
+
+  const total =
+    (parseFloat(form.freight) || 0) +
+    (parseFloat(form.origin) || 0) +
+    (parseFloat(form.dest) || 0);
+
+  function handleChange(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setLoading(true);
+    const ok = await onSubmit({
+      carrier: form.carrier,
+      freight: parseFloat(form.freight),
+      origin: parseFloat(form.origin),
+      dest: parseFloat(form.dest),
+      transitTime: form.transitTime,
+      validity: form.validity,
+    });
+    setLoading(false);
+    if (ok) {
+      setForm(defaultForm);
+      onClose();
+    }
+  }
+
+  return (
+    <div
+      className="modal-overlay"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="modal-content p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-syne font-bold text-lg">Submit Quote</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer' }}>
+            <i data-lucide="x" style={{ width: 20, height: 20 }} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="grid-2 gap-4 mb-4">
+            <div style={{ gridColumn: 'span 2' }}>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">Carrier Name *</label>
+              <input name="carrier" type="text" className="input-field" placeholder="e.g. Maersk Line" value={form.carrier} onChange={handleChange} required />
+            </div>
+            <div>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">Freight Charges ($) *</label>
+              <input name="freight" type="number" className="input-field" min="0" step="0.01" placeholder="0.00" value={form.freight} onChange={handleChange} required />
+            </div>
+            <div>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">Origin Charges ($) *</label>
+              <input name="origin" type="number" className="input-field" min="0" step="0.01" placeholder="0.00" value={form.origin} onChange={handleChange} required />
+            </div>
+            <div>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">Destination Charges ($) *</label>
+              <input name="dest" type="number" className="input-field" min="0" step="0.01" placeholder="0.00" value={form.dest} onChange={handleChange} required />
+            </div>
+            <div>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">Transit Time *</label>
+              <input name="transitTime" type="text" className="input-field" placeholder="e.g. 14 days" value={form.transitTime} onChange={handleChange} required />
+            </div>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">Quote Validity *</label>
+              <input name="validity" type="text" className="input-field" placeholder="e.g. 30 days" value={form.validity} onChange={handleChange} required />
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg mb-4" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
+            <div className="font-mono text-xs text-neutral-500">
+              Total Bid: <strong className="text-white text-sm">{formatCurrency(total)}</strong>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? 'Submitting...' : 'Submit Bid'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// DeleteModal.jsx
+import { useState } from 'react';
+
+export default function DeleteModal({ onClose, onConfirm }) {
+  const [loading, setLoading] = useState(false);
+
+  async function handleConfirm() {
+    setLoading(true);
+    await onConfirm();
+    setLoading(false);
+  }
+
+  return (
+    <div
+      className="modal-overlay"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="modal-content p-6" style={{ maxWidth: 400 }}>
+        <div className="text-center">
+          <div
+            className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center"
+            style={{ background: '#1a1a1a' }}
+          >
+            <i data-lucide="alert-triangle" style={{ width: 24, height: 24, color: '#999' }} />
+          </div>
+          <h3 className="font-syne font-bold text-lg mb-2">Delete Auction?</h3>
+          <p className="font-mono text-xs text-neutral-500 mb-6">
+            This will permanently delete the RFQ and all associated bids.
+          </p>
+          <div className="flex justify-center gap-3">
+            <button className="btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
+            <button
+              className="btn-primary"
+              style={{ background: '#ff4444', color: '#fff' }}
+              onClick={handleConfirm}
+              disabled={loading}
+            >
+              {loading ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Badge.jsx
+export default function Badge({ status }) {
+  const badgeClass =
+    status === 'Active'
+      ? 'badge-active'
+      : status === 'Closed'
+      ? 'badge-closed'
+      : 'badge-force-closed';
+
+  return (
+    <span className={`badge ${badgeClass}`}>
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${
+          status === 'Active' ? 'bg-white pulse-dot' : 'bg-neutral-600'
+        }`}
+      />
+      {status}
+    </span>
+  );
+}
+
+// Toast.jsx
+
+export default function ToastContainer({ toasts }) {
+  return (
+    <div className="toast-container">
+      {toasts.map((t) => (
+        <div key={t.id} className={`toast${t.isError ? ' toast-error' : ''}`}>
+          {t.msg}
+        </div>
+      ))}
+    </div>
+  );
+}
+// CreateView.jsx
+import { useState } from 'react';
+import { triggerLabel } from '../../utils/helpers';
+
+const defaultForm = {
+  rfqName: '',
+  rfqRefId: '',
+  bidStart: '',
+  bidClose: '',
+  forcedClose: '',
+  pickupDate: '',
+  triggerWindow: 10,
+  extensionDuration: 5,
+  extensionTrigger: 'bid_received',
+};
+
+export default function CreateView({ onNavigate, onCreateRFQ }) {
+  const [form, setForm] = useState(defaultForm);
+  const [scheduleError, setScheduleError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  function handleChange(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  function configPreviewText() {
+    return (
+      <>
+        Monitoring last <strong className="text-white">{form.triggerWindow} min</strong> before
+        close. Extends by <strong className="text-white">{form.extensionDuration} min</strong> on{' '}
+        <strong className="text-white">{triggerLabel(form.extensionTrigger).toLowerCase()}</strong>.
+      </>
+    );
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setScheduleError('');
+
+    const bidClose = new Date(form.bidClose);
+    const forcedClose = new Date(form.forcedClose);
+    const bidStart = new Date(form.bidStart);
+
+    if (forcedClose <= bidClose) {
+      setScheduleError('Forced Bid Close must be later than Bid Close Time.');
+      return;
+    }
+    if (bidStart >= bidClose) {
+      setScheduleError('Bid Start must be before Bid Close Time.');
+      return;
+    }
+
+    setLoading(true);
+    const ok = await onCreateRFQ({
+      rfq_name: form.rfqName,
+      rfq_id: form.rfqRefId,
+      bid_start: form.bidStart,
+      bid_close: form.bidClose,
+      forced_close: form.forcedClose,
+      pickup_date: form.pickupDate || '',
+      trigger_window: parseInt(form.triggerWindow),
+      extension_duration: parseInt(form.extensionDuration),
+      extension_trigger: form.extensionTrigger,
+      current_close: form.bidClose,
+    });
+    setLoading(false);
+    if (ok) {
+      setForm(defaultForm);
+      onNavigate('listing');
+    }
+  }
+
+  return (
+    <section className="px-6 py-12 max-w-3xl mx-auto">
+      <button className="btn-ghost text-xs mb-8" onClick={() => onNavigate('listing')}>
+        <span className="flex items-center gap-2">
+          <i data-lucide="arrow-left" style={{ width: 14, height: 14 }} />
+          Back to Auctions
+        </span>
+      </button>
+
+      <h2 className="font-syne font-bold text-3xl mb-2 anim-fade-up">Create RFQ</h2>
+      <p className="font-mono text-xs text-neutral-500 mb-8 anim-fade-up-1">
+        Configure your British Auction parameters
+      </p>
+
+      <form onSubmit={handleSubmit}>
+        {/* Basic Info */}
+        <div className="card p-6 mb-4 anim-fade-up-1">
+          <h3 className="font-syne font-semibold text-sm mb-4 flex items-center gap-2">
+            <i data-lucide="file-text" style={{ width: 16, height: 16, color: '#666' }} />
+            Basic Information
+          </h3>
+          <div className="grid-2 gap-4">
+            <div>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">RFQ Name *</label>
+              <input
+                name="rfqName"
+                type="text"
+                className="input-field"
+                placeholder="e.g. Q4 Freight Tender"
+                value={form.rfqName}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">Reference ID *</label>
+              <input
+                name="rfqRefId"
+                type="text"
+                className="input-field"
+                placeholder="e.g. RFQ-2024-001"
+                value={form.rfqRefId}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Schedule */}
+        <div className="card p-6 mb-4 anim-fade-up-2">
+          <h3 className="font-syne font-semibold text-sm mb-4 flex items-center gap-2">
+            <i data-lucide="clock" style={{ width: 16, height: 16, color: '#666' }} />
+            Auction Schedule
+          </h3>
+          <div className="grid-2 gap-4">
+            <div>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">Bid Start Date &amp; Time *</label>
+              <input name="bidStart" type="datetime-local" className="input-field" value={form.bidStart} onChange={handleChange} required />
+            </div>
+            <div>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">Bid Close Date &amp; Time *</label>
+              <input name="bidClose" type="datetime-local" className="input-field" value={form.bidClose} onChange={handleChange} required />
+            </div>
+            <div>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">Forced Bid Close *</label>
+              <input name="forcedClose" type="datetime-local" className="input-field" value={form.forcedClose} onChange={handleChange} required />
+            </div>
+            <div>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">Pickup / Service Date</label>
+              <input name="pickupDate" type="date" className="input-field" value={form.pickupDate} onChange={handleChange} />
+            </div>
+          </div>
+          {scheduleError && (
+            <div className="font-mono text-xs mt-3" style={{ color: '#ff6b6b' }}>
+              {scheduleError}
+            </div>
+          )}
+        </div>
+
+        {/* Auction Config */}
+        <div className="card p-6 mb-4 anim-fade-up-3">
+          <h3 className="font-syne font-semibold text-sm mb-4 flex items-center gap-2">
+            <i data-lucide="settings" style={{ width: 16, height: 16, color: '#666' }} />
+            British Auction Configuration
+          </h3>
+          <div className="grid-3 gap-4">
+            <div>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">Trigger Window (X min) *</label>
+              <input name="triggerWindow" type="number" className="input-field" min="1" max="60" value={form.triggerWindow} onChange={handleChange} required />
+            </div>
+            <div>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">Extension Duration (Y min) *</label>
+              <input name="extensionDuration" type="number" className="input-field" min="1" max="30" value={form.extensionDuration} onChange={handleChange} required />
+            </div>
+            <div>
+              <label className="font-mono text-xs text-neutral-500 block mb-2">Extension Trigger *</label>
+              <select name="extensionTrigger" className="input-field" value={form.extensionTrigger} onChange={handleChange} required>
+                <option value="bid_received">Bid Received</option>
+                <option value="rank_change">Any Rank Change</option>
+                <option value="l1_change">L1 Rank Change</option>
+              </select>
+            </div>
+          </div>
+          <div className="mt-4 p-3 rounded-lg" style={{ background: '#111', border: '1px solid #1a1a1a' }}>
+            <p className="font-mono text-xs text-neutral-500">{configPreviewText()}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 mt-6">
+          <button type="button" className="btn-ghost" onClick={() => onNavigate('listing')}>Cancel</button>
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading ? 'Creating...' : 'Create Auction'}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+// DetailView.jsx
+import { useEffect, useState, useRef } from 'react';
+import { getAuctionStatus, formatCurrency, formatDateTime, formatTimeRemaining, triggerLabel } from '../../utils/helpers';
+import Badge from '../ui/Badge';
+
+function RankBadge({ rank }) {
+  const cls =
+    rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
+  return <div className={`rank-badge ${cls}`}>L{rank}</div>;
+}
+
+function BidCard({ bid, rank }) {
+  const isL1 = rank === 1;
+  return (
+    <div className={`card p-4 mb-2 anim-slide-in${isL1 ? ' bid-card-l1' : ''}`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <RankBadge rank={rank} />
+          <div>
+            <div className="font-syne font-semibold text-sm">{bid.carrier_name}</div>
+            <div className="font-mono text-xs text-neutral-600">{formatDateTime(bid.bid_time)}</div>
+          </div>
+        </div>
+        <div className="font-syne font-bold text-lg">{formatCurrency(bid.total_bid)}</div>
+      </div>
+      <div className="flex items-center gap-6 flex-wrap text-sm">
+        <div>
+          <span className="font-mono text-xs text-neutral-600">Freight: </span>
+          <span className="font-mono text-xs">{formatCurrency(bid.freight_charges)}</span>
+        </div>
+        <div>
+          <span className="font-mono text-xs text-neutral-600">Origin: </span>
+          <span className="font-mono text-xs">{formatCurrency(bid.origin_charges)}</span>
+        </div>
+        <div>
+          <span className="font-mono text-xs text-neutral-600">Dest: </span>
+          <span className="font-mono text-xs">{formatCurrency(bid.destination_charges)}</span>
+        </div>
+        <div>
+          <span className="font-mono text-xs text-neutral-600">Transit: </span>
+          <span className="font-mono text-xs">{bid.transit_time}</span>
+        </div>
+        <div>
+          <span className="font-mono text-xs text-neutral-600">Valid: </span>
+          <span className="font-mono text-xs">{bid.quote_validity}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActivityLog({ logs }) {
+  const sorted = [...logs]
+    .sort((a, b) => new Date(b.log_time) - new Date(a.log_time))
+    .slice(0, 20);
+
+  return (
+    <div className="live-activity-section">
+      <h3 className="font-syne font-semibold text-sm mb-3">Live Activity</h3>
+      {sorted.length === 0 ? (
+        <div className="text-center py-8 font-mono text-sm text-neutral-600">No activity yet.</div>
+      ) : (
+        sorted.map((log, i) => {
+          const isExtension = (log.log_message || '').includes('extended');
+          return (
+            <div key={log.__backendId || i} className="log-entry">
+              <div className="flex-shrink-0 mt-1">
+                <i
+                  data-lucide={isExtension ? 'clock' : 'send'}
+                  style={{ width: 14, height: 14, color: '#555' }}
+                />
+              </div>
+              <div className="flex-1">
+                <div className="font-mono text-xs">{log.log_message}</div>
+                <div className="font-mono text-xs text-neutral-600 mt-1">
+                  {formatDateTime(log.log_time)}
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+export default function DetailView({ rfqId, allData, getBidsForRFQ, getLogsForRFQ, onNavigate, onOpenBidModal }) {
+  const rfq = allData.find((d) => d.__backendId === rfqId && d.type === 'rfq');
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  // Countdown timer
+  useEffect(() => {
+    if (!rfq) return;
+    function tick() {
+      const close = new Date(rfq.current_close || rfq.bid_close);
+      setTimeLeft(close - new Date());
+    }
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [rfq]);
+
+  // Re-init lucide icons whenever detail renders
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  });
+
+  if (!rfq) return null;
+
+  const bids = getBidsForRFQ(rfqId);
+  const logs = getLogsForRFQ(rfqId);
+  const status = getAuctionStatus(rfq);
+  const lowest = bids.length > 0 ? Math.min(...bids.map((b) => b.total_bid)) : null;
+  const sortedBids = [...bids].sort((a, b) => a.total_bid - b.total_bid);
+
+  const originalClose = new Date(rfq.bid_close);
+  const currentClose = new Date(rfq.current_close || rfq.bid_close);
+  const isExtended = currentClose > originalClose;
+
+  const isClosed = status === 'Closed' || status === 'Force Closed';
+  const countdownColor = timeLeft < 300000 ? '#ff4444' : 'var(--text-primary)';
+
+  return (
+    <section className="px-6 py-12 max-w-5xl mx-auto">
+      <button className="btn-ghost text-xs mb-8" onClick={() => onNavigate('listing')}>
+        <span className="flex items-center gap-2">
+          <i data-lucide="arrow-left" style={{ width: 14, height: 14 }} />
+          Back to Auctions
+        </span>
+      </button>
+
+      {/* Header */}
+      <div className="flex flex-col md:flex-row items-start justify-between gap-4 mb-8">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <h2 className="font-syne font-bold text-3xl">{rfq.rfq_name}</h2>
+            <Badge status={status} />
+          </div>
+          <p className="font-mono text-xs text-neutral-500">{rfq.rfq_id}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="text-right">
+            <div className="font-mono text-xs text-neutral-600">Time Remaining</div>
+            <div className="font-syne font-bold text-lg" style={{ color: countdownColor }}>
+              {formatTimeRemaining(timeLeft)}
+            </div>
+          </div>
+          {!isClosed && (
+            <button className="btn-primary text-xs" onClick={onOpenBidModal}>
+              <span className="flex items-center gap-2">
+                <i data-lucide="send" style={{ width: 14, height: 14 }} />
+                Place Bid
+              </span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Stats grid */}
+      <div
+        className="gap-4 mb-8"
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)' }}
+      >
+        <div className="card p-4 text-center">
+          <div className="font-mono text-xs text-neutral-600 mb-1">Lowest Bid</div>
+          <div className="font-syne font-bold text-xl">{lowest !== null ? formatCurrency(lowest) : '—'}</div>
+        </div>
+        <div className="card p-4 text-center">
+          <div className="font-mono text-xs text-neutral-600 mb-1">Total Bids</div>
+          <div className="font-syne font-bold text-xl">{bids.length}</div>
+        </div>
+        <div className="card p-4 text-center">
+          <div className="font-mono text-xs text-neutral-600 mb-1">Pickup Date</div>
+          <div className="font-mono text-xs">{rfq.pickup_date ? formatDateTime(rfq.pickup_date) : '—'}</div>
+        </div>
+        <div className="card p-4 text-center">
+          <div className="font-mono text-xs text-neutral-600 mb-1">Current Close</div>
+          <div className="font-mono text-xs">{formatDateTime(rfq.current_close || rfq.bid_close)}</div>
+        </div>
+        <div className="card p-4 text-center">
+          <div className="font-mono text-xs text-neutral-600 mb-1">Forced Close</div>
+          <div className="font-mono text-xs">{formatDateTime(rfq.forced_close)}</div>
+        </div>
+      </div>
+
+      {/* Ended banner */}
+      {isClosed && (
+        <div
+          className="mb-3 px-4 py-3 rounded-xl text-center"
+          style={{
+            border: '1px solid',
+            background: status === 'Force Closed' ? 'rgba(255,100,100,0.15)' : 'rgba(100,100,100,0.15)',
+            borderColor: status === 'Force Closed' ? '#ff6464' : '#666',
+          }}
+        >
+          <div className="font-syne font-semibold text-sm">
+            {status === 'Force Closed' ? '⏹ Auction Force Closed' : '✓ Auction Closed'}
+          </div>
+          <div className="font-mono text-xs text-neutral-600 mt-1">
+            {formatDateTime(status === 'Force Closed' ? rfq.forced_close : rfq.current_close || rfq.bid_close)}
+          </div>
+        </div>
+      )}
+
+      {/* Extension banner */}
+      {isExtended && (
+        <div
+          className="mb-3 px-4 py-3 rounded-xl"
+          style={{ background: 'rgba(100,200,100,0.15)', border: '1px solid #4ade80' }}
+        >
+          <div className="font-mono text-xs flex items-center gap-2" style={{ color: '#4ade80' }}>
+            <i data-lucide="zap" style={{ width: 14, height: 14 }} />
+            <strong>Auction extended</strong> — new bids received within trigger window
+          </div>
+        </div>
+      )}
+
+      {/* Config strip */}
+      <div className="card p-4 mb-8">
+        <div className="flex items-center gap-6 flex-wrap">
+          <div className="flex items-center gap-2">
+            <i data-lucide="timer" style={{ width: 14, height: 14, color: '#666' }} />
+            <span className="font-mono text-xs text-neutral-400">
+              Trigger: <strong className="text-white">{rfq.trigger_window}</strong> min
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <i data-lucide="clock" style={{ width: 14, height: 14, color: '#666' }} />
+            <span className="font-mono text-xs text-neutral-400">
+              Extension: <strong className="text-white">{rfq.extension_duration}</strong> min
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <i data-lucide="zap" style={{ width: 14, height: 14, color: '#666' }} />
+            <span className="font-mono text-xs text-neutral-400">
+              On: <strong className="text-white">{triggerLabel(rfq.extension_trigger)}</strong>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Live Rankings */}
+      <h3 className="font-syne font-semibold text-lg mb-4">Live Rankings</h3>
+      {sortedBids.length === 0 ? (
+        <div className="text-center py-12 font-mono text-sm text-neutral-600">
+          No bids submitted yet.
+        </div>
+      ) : (
+        sortedBids.map((bid, i) => (
+          <BidCard key={bid.__backendId} bid={bid} rank={i + 1} />
+        ))
+      )}
+
+      <ActivityLog logs={logs} />
+    </section>
+  );
+}
+// HeroView.jsx
+export default function HeroView({ stats, config, onNavigate }) {
+  const heading = config?.hero_heading || 'Precision\nBidding.';
+  const desc =
+    config?.hero_description ||
+    'Transparent supplier competition with intelligent auction extensions. Fair pricing through British Auction mechanics.';
+
+  return (
+    <section className="px-6 py-20 md:py-32 max-w-5xl mx-auto text-center">
+      <div className="anim-fade-up">
+        <div
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-neutral-800 mb-8"
+          style={{ borderColor: 'var(--border-color)' }}
+        >
+          <span className="w-2 h-2 rounded-full bg-white pulse-dot" />
+          <span className="font-mono text-xs text-neutral-400">Live Auction Engine</span>
+        </div>
+      </div>
+
+      <h1
+        className="font-syne font-800 text-5xl md:text-7xl tracking-tight leading-none mb-6 anim-fade-up"
+        dangerouslySetInnerHTML={{ __html: heading.replace(/\n/g, '<br/>') }}
+      />
+
+      <p className="font-mono text-sm text-neutral-500 max-w-md mx-auto mb-10 anim-fade-up-2">
+        {desc}
+      </p>
+
+      <div className="flex items-center justify-center gap-4 anim-fade-up-3">
+        <button className="btn-primary" onClick={() => onNavigate('create')}>
+          Create RFQ
+        </button>
+        <button className="btn-ghost" onClick={() => onNavigate('listing')}>
+          View Auctions
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-6 mt-20 max-w-lg mx-auto anim-fade-up-3">
+        <div className="text-center">
+          <div className="font-syne font-bold text-2xl">{stats.rfqs}</div>
+          <div className="font-mono text-xs text-neutral-600">RFQs</div>
+        </div>
+        <div className="text-center">
+          <div className="font-syne font-bold text-2xl">{stats.bids}</div>
+          <div className="font-mono text-xs text-neutral-600">Bids</div>
+        </div>
+        <div className="text-center">
+          <div className="font-syne font-bold text-2xl">{stats.active}</div>
+          <div className="font-mono text-xs text-neutral-600">Active</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
+// ListingView.jsx
+import { getAuctionStatus, formatCurrency, formatDateTime } from '../../utils/helpers';
+import Badge from '../ui/Badge';
+
+export default function ListingView({ rfqs, getBidsForRFQ, onNavigate, onOpenDetail, onDeleteRFQ }) {
+  const sorted = [...rfqs].sort((a, b) => new Date(b.bid_start) - new Date(a.bid_start));
+
+  return (
+    <section className="px-6 py-12 max-w-5xl mx-auto">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="font-syne font-bold text-3xl mb-1 anim-fade-up">Auctions</h2>
+          <p className="font-mono text-xs text-neutral-500 anim-fade-up-1">All British Auction RFQs</p>
+        </div>
+        <button className="btn-primary" onClick={() => onNavigate('create')}>
+          <span className="flex items-center gap-2">
+            <i data-lucide="plus" style={{ width: 14, height: 14 }} />
+            New RFQ
+          </span>
+        </button>
+      </div>
+
+      {sorted.length === 0 ? (
+        <div className="text-center py-20 font-mono text-sm text-neutral-600">
+          <i data-lucide="inbox" style={{ width: 40, height: 40, margin: '0 auto 12px', color: '#333', display: 'block' }} />
+          No auctions yet. Create your first RFQ to get started.
+        </div>
+      ) : (
+        sorted.map((rfq) => {
+          const bids = getBidsForRFQ(rfq.__backendId);
+          const status = getAuctionStatus(rfq);
+          const lowest = bids.length > 0 ? Math.min(...bids.map((b) => b.total_bid)) : null;
+
+          return (
+            <div
+              key={rfq.__backendId}
+              className="card card-clickable p-5 mb-3 anim-slide-in"
+              onClick={() => onOpenDetail(rfq.__backendId)}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-syne font-semibold text-base">{rfq.rfq_name}</h3>
+                  <Badge status={status} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="btn-ghost text-xs"
+                    style={{ padding: '6px 10px' }}
+                    title="Delete"
+                    onClick={(e) => { e.stopPropagation(); onDeleteRFQ(rfq.__backendId); }}
+                  >
+                    <i data-lucide="trash-2" style={{ width: 14, height: 14 }} />
+                  </button>
+                  <button
+                    className="btn-ghost text-xs"
+                    style={{ padding: '6px 12px' }}
+                    onClick={(e) => { e.stopPropagation(); onOpenDetail(rfq.__backendId); }}
+                  >
+                    <span className="flex items-center gap-1">
+                      View <i data-lucide="arrow-right" style={{ width: 12, height: 12 }} />
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-6 flex-wrap">
+                <div>
+                  <span className="font-mono text-xs text-neutral-600">Ref: </span>
+                  <span className="font-mono text-xs">{rfq.rfq_id}</span>
+                </div>
+                <div>
+                  <span className="font-mono text-xs text-neutral-600">Lowest: </span>
+                  <span className="font-mono text-xs font-bold">
+                    {lowest !== null ? formatCurrency(lowest) : '—'}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-mono text-xs text-neutral-600">Bids: </span>
+                  <span className="font-mono text-xs">{bids.length}</span>
+                </div>
+                <div>
+                  <span className="font-mono text-xs text-neutral-600">Closes: </span>
+                  <span className="font-mono text-xs">
+                    {formatDateTime(rfq.current_close || rfq.bid_close)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </section>
+  );
+}
+
+hooks->useActions.js
+
+// useAuction.js
+import { useState, useEffect, useCallback } from 'react';
+import { getAuctionStatus, formatCurrency, formatDateTime } from '../utils/helpers';
+
+// ---------------------------------------------------------------------------
+// Thin in-memory data store (replace with real API calls later)
+// ---------------------------------------------------------------------------
+let _store = [];
+let _nextId = 1;
+const _listeners = new Set();
+
+function notify() {
+  _listeners.forEach((fn) => fn([..._store]));
+}
+
+const dataSdk = {
+  init(handler) {
+    _listeners.add(handler);
+    handler([..._store]);
+    return () => _listeners.delete(handler);
+  },
+  create(record) {
+    const item = { ...record, __backendId: String(_nextId++) };
+    _store = [..._store, item];
+    notify();
+    return { isOk: true, data: item };
+  },
+  update(record) {
+    _store = _store.map((r) => (r.__backendId === record.__backendId ? { ...record } : r));
+    notify();
+    return { isOk: true };
+  },
+  delete(record) {
+    _store = _store.filter((r) => r.__backendId !== record.__backendId);
+    notify();
+    return { isOk: true };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+export function useAuction() {
+  const [allData, setAllData] = useState([]);
+  const [toasts, setToasts] = useState([]);
+
+  // Subscribe to store
+  useEffect(() => {
+    const unsub = dataSdk.init(setAllData);
+    return unsub;
+  }, []);
+
+  // Periodic refresh (mirrors original 30 s setInterval)
+  // With real state this is automatic, but kept for parity
+  // (no-op here since state changes trigger re-renders)
+
+  // ── Selectors ─────────────────────────────────────────────────────────────
+  const getRFQs = useCallback(() => allData.filter((d) => d.type === 'rfq'), [allData]);
+
+  const getBidsForRFQ = useCallback(
+    (rfqId) => allData.filter((d) => d.type === 'bid' && d.rfq_ref === rfqId),
+    [allData]
+  );
+
+  const getLogsForRFQ = useCallback(
+    (rfqId) => allData.filter((d) => d.type === 'log' && d.log_rfq_ref === rfqId),
+    [allData]
+  );
+
+  const stats = {
+    rfqs: getRFQs().length,
+    bids: allData.filter((d) => d.type === 'bid').length,
+    active: getRFQs().filter((r) => getAuctionStatus(r) === 'Active').length,
+  };
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  const showToast = useCallback((msg, isError = false) => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, msg, isError }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3500);
+  }, []);
+
+  // ── RFQ CRUD ──────────────────────────────────────────────────────────────
+  const createRFQ = useCallback(async (payload) => {
+    if (getRFQs().length >= 999) {
+      showToast('Maximum limit of 999 records reached. Please delete some first.', true);
+      return false;
+    }
+    const result = dataSdk.create({ ...payload, type: 'rfq', status: 'active' });
+    if (result.isOk) {
+      showToast('RFQ created successfully');
+      return true;
+    }
+    showToast('Failed to create RFQ', true);
+    return false;
+  }, [getRFQs, showToast]);
+
+  const deleteRFQ = useCallback(async (rfqId) => {
+    const rfq = allData.find((d) => d.__backendId === rfqId);
+    if (!rfq) return;
+    const related = allData.filter(
+      (d) =>
+        (d.type === 'bid' || d.type === 'log') &&
+        (d.rfq_ref === rfqId || d.log_rfq_ref === rfqId)
+    );
+    for (const item of related) dataSdk.delete(item);
+    dataSdk.delete(rfq);
+    showToast('Auction deleted');
+  }, [allData, showToast]);
+
+  // ── Bid submission (with extension logic) ─────────────────────────────────
+  const submitBid = useCallback(
+    async (rfqId, { carrier, freight, origin, dest, transitTime, validity }) => {
+      if (allData.filter((d) => d.type === 'bid').length >= 900) {
+        showToast('Approaching data limit. Please manage existing records.', true);
+        return false;
+      }
+
+      const total = freight + origin + dest;
+      const bidTime = new Date().toISOString();
+      const existingBids = getBidsForRFQ(rfqId);
+      const oldL1 =
+        existingBids.length > 0
+          ? Math.min(...existingBids.map((b) => b.total_bid))
+          : Infinity;
+
+      const bidResult = dataSdk.create({
+        type: 'bid',
+        rfq_ref: rfqId,
+        carrier_name: carrier,
+        freight_charges: freight,
+        origin_charges: origin,
+        destination_charges: dest,
+        transit_time: transitTime,
+        quote_validity: validity,
+        total_bid: total,
+        bid_time: bidTime,
+        rank: 0,
+      });
+
+      dataSdk.create({
+        type: 'log',
+        log_rfq_ref: rfqId,
+        log_message: `${carrier} submitted bid of ${formatCurrency(total)}`,
+        log_time: bidTime,
+      });
+
+      // Extension logic
+      const rfq = allData.find((d) => d.__backendId === rfqId && d.type === 'rfq');
+      if (rfq) {
+        const now = new Date();
+        const currentClose = new Date(rfq.current_close || rfq.bid_close);
+        const forcedClose = new Date(rfq.forced_close);
+        const triggerStart = new Date(currentClose.getTime() - rfq.trigger_window * 60000);
+
+        if (now >= triggerStart && now < currentClose) {
+          let shouldExtend = false;
+          let reason = '';
+
+          if (rfq.extension_trigger === 'bid_received') {
+            shouldExtend = true;
+            reason = `Bid received within last ${rfq.trigger_window} minutes`;
+          } else if (rfq.extension_trigger === 'rank_change') {
+            const newRanks = [...existingBids, { carrier_name: carrier, total_bid: total }]
+              .sort((a, b) => a.total_bid - b.total_bid)
+              .map((b) => b.carrier_name);
+            const oldRanks = [...existingBids]
+              .sort((a, b) => a.total_bid - b.total_bid)
+              .map((b) => b.carrier_name);
+            if (JSON.stringify(newRanks) !== JSON.stringify(oldRanks)) {
+              shouldExtend = true;
+              reason = `Supplier ranking changed within last ${rfq.trigger_window} minutes`;
+            }
+          } else if (rfq.extension_trigger === 'l1_change') {
+            if (total < oldL1) {
+              shouldExtend = true;
+              reason = `New lowest bidder (L1) within last ${rfq.trigger_window} minutes`;
+            }
+          }
+
+          if (shouldExtend) {
+            let newClose = new Date(currentClose.getTime() + rfq.extension_duration * 60000);
+            if (newClose > forcedClose) newClose = forcedClose;
+            if (newClose > currentClose) {
+              dataSdk.update({ ...rfq, current_close: newClose.toISOString() });
+              dataSdk.create({
+                type: 'log',
+                log_rfq_ref: rfqId,
+                log_message: `Auction extended by ${rfq.extension_duration} min — ${reason}. New close: ${formatDateTime(newClose.toISOString())}`,
+                log_time: new Date().toISOString(),
+              });
+              showToast(`Auction extended by ${rfq.extension_duration} minutes`);
+            }
+          }
+        }
+      }
+
+      if (bidResult.isOk) {
+        showToast('Bid submitted successfully');
+        return true;
+      }
+      showToast('Failed to submit bid', true);
+      return false;
+    },
+    [allData, getBidsForRFQ, showToast]
+  );
+
+  return {
+    allData,
+    getRFQs,
+    getBidsForRFQ,
+    getLogsForRFQ,
+    stats,
+    toasts,
+    showToast,
+    createRFQ,
+    deleteRFQ,
+    submitBid,
+  };
+}
+
+utils-> helper.js
+// helpers.js
+export function getAuctionStatus(rfq) {
+  const now = new Date();
+  const start = new Date(rfq.bid_start);
+  const close = new Date(rfq.current_close || rfq.bid_close);
+  const forced = new Date(rfq.forced_close);
+  if (now < start) return 'Scheduled';
+  if (now >= forced) return 'Force Closed';
+  if (now >= close) return 'Closed';
+  return 'Active';
+}
+
+export function formatDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return (
+    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+    ' ' +
+    d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+  );
+}
+
+export function formatCurrency(n) {
+  return '$' + Number(n || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+export function formatTimeRemaining(ms) {
+  if (ms <= 0) return '00:00:00';
+  const hours = Math.floor(ms / 3600000);
+  const minutes = Math.floor((ms % 3600000) / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  return [hours, minutes, seconds]
+    .map((v) => v.toString().padStart(2, '0'))
+    .join(':');
+}
+
+export function triggerLabel(t) {
+  if (t === 'rank_change') return 'Any Rank Change';
+  if (t === 'l1_change') return 'L1 Rank Change';
+  return 'Bid Received';
+}
+
+export function adjustBrightness(hex, amount) {
+  hex = hex.replace('#', '');
+  const r = Math.min(255, parseInt(hex.substring(0, 2), 16) + amount);
+  const g = Math.min(255, parseInt(hex.substring(2, 4), 16) + amount);
+  const b = Math.min(255, parseInt(hex.substring(4, 6), 16) + amount);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+
+
+
+
+
+
