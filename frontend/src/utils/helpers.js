@@ -1,9 +1,17 @@
 // helpers.js
 export function getAuctionStatus(rfq) {
+  if (rfq._backendStatus) {
+    if (rfq._backendStatus === 'ACTIVE') return 'Active';
+    if (rfq._backendStatus === 'CLOSED') return 'Closed';
+    if (rfq._backendStatus === 'FORCE_CLOSED') return 'Force Closed';
+    return 'Scheduled';
+  }
+
   const now = new Date();
   const start = new Date(rfq.bid_start);
   const close = new Date(rfq.current_close || rfq.bid_close);
   const forced = new Date(rfq.forced_close);
+
   if (now < start) return 'Scheduled';
   if (now >= forced) return 'Force Closed';
   if (now >= close) return 'Closed';
@@ -13,11 +21,13 @@ export function getAuctionStatus(rfq) {
 export function formatDateTime(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
-  return (
-    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
-    ' ' +
-    d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-  );
+
+  return d.toLocaleString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 export function formatCurrency(n) {

@@ -55,6 +55,7 @@ export function useAuction() {
       trigger_window: a.triggerWindow,
       extension_duration: a.extensionDuration,
       extension_trigger: mapTrigger(a.triggerType),
+      _backendStatus: a.status,
     }));
 
     setAllData(formatted);

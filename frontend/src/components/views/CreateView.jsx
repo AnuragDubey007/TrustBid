@@ -93,9 +93,9 @@ export default function CreateView({ onNavigate, onCreateRFQ }) {
     const ok = await onCreateRFQ({
       rfq_name: form.rfqName,
       rfq_id: form.rfqRefId,
-      bid_start: form.bidStart,
-      bid_close: form.bidClose,
-      forced_close: form.forcedClose,
+      bid_start: new Date(form.bidStart).toISOString(),     
+      bid_close: new Date(form.bidClose).toISOString(),       
+      forced_close: new Date(form.forcedClose).toISOString(), 
       pickup_date: form.pickupDate || '',
       trigger_window: parseInt(form.triggerWindow),
       extension_duration: parseInt(form.extensionDuration),

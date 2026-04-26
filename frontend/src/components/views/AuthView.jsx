@@ -255,7 +255,7 @@ export default function AuthView({ theme, onLogin, onRegister }) {
             <i data-lucide="zap" style={{ width: 32, height: 32, color: '#000' }} />
           </div>
 
-          <h1 className="font-syne font-bold text-4xl mb-3 anim-fade-up">BidFlow</h1>
+          <h1 className="font-syne font-bold text-4xl mb-3 anim-fade-up">TrustBid</h1>
           <p className="font-mono text-sm text-neutral-400 max-w-sm mx-auto anim-fade-up-1">
             Precision Bidding
           </p>
