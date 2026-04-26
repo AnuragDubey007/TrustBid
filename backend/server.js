@@ -16,7 +16,9 @@ connectDB();
 // middleware
 app.use(cors({
   origin: [
-    "*"
+    "https://trust-bid-gamma.vercel.app",
+    "https://trust-m26on6fdg-anuragdubey007s-projects.vercel.app",
+    "http://localhost:5173"
   ],
   credentials: true
 }));
@@ -36,7 +38,12 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: [
+      "https://trust-bid-gamma.vercel.app",
+      "https://trust-m26on6fdg-anuragdubey007s-projects.vercel.app",
+      "http://localhost:5173"
+    ],
+    credentials: true,
   },
 });
 
