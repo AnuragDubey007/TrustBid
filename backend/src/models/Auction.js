@@ -34,6 +34,7 @@ const auctionSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    pickupDate: { type: Date },
   },
   { timestamps: true }
 );

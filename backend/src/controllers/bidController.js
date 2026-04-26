@@ -215,10 +215,13 @@ const placeBid = async (req, res) => {
       throw err;
     }
 
+    const User = require("../models/User");
+    const user = await User.findById(req.user.id);
+
     await ActivityLog.create({
       auctionId,
       type: "BID",
-      message: `Supplier ${req.user.id} placed bid ₹${amount}`,
+      message: `Supplier ${user.name} placed bid ₹${amount}`,
       metadata: {
         supplierId: req.user.id,
         amount,

@@ -1,17 +1,11 @@
 // helpers.js
 export function getAuctionStatus(rfq) {
-  if (rfq._backendStatus) {
-    if (rfq._backendStatus === 'ACTIVE') return 'Active';
-    if (rfq._backendStatus === 'CLOSED') return 'Closed';
-    if (rfq._backendStatus === 'FORCE_CLOSED') return 'Force Closed';
-    return 'Scheduled';
-  }
-
   const now = new Date();
   const start = new Date(rfq.bid_start);
   const close = new Date(rfq.current_close || rfq.bid_close);
   const forced = new Date(rfq.forced_close);
 
+  // 🔥 LIVE CALCULATION (PRIMARY)
   if (now < start) return 'Scheduled';
   if (now >= forced) return 'Force Closed';
   if (now >= close) return 'Closed';

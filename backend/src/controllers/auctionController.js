@@ -13,6 +13,7 @@ const createAuction = async (req, res) => {
       triggerWindow,
       extensionDuration,
       triggerType,
+      pickupDate
     } = req.body;
 
     // ✅ validations
@@ -76,6 +77,7 @@ const createAuction = async (req, res) => {
       triggerWindow,
       extensionDuration,
       triggerType,
+      pickupDate,
     });
 
     res.status(201).json(auction);

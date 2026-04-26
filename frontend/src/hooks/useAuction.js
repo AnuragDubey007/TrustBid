@@ -56,6 +56,7 @@ export function useAuction() {
       extension_duration: a.extensionDuration,
       extension_trigger: mapTrigger(a.triggerType),
       _backendStatus: a.status,
+      pickup_date: a.pickupDate,
     }));
 
     setAllData(formatted);
@@ -177,6 +178,7 @@ export function useAuction() {
           triggerWindow: payload.trigger_window,
           extensionDuration: payload.extension_duration,
           triggerType: mapBackTrigger(payload.extension_trigger),
+          pickupDate: payload.pickup_date,
         }),
       });
 

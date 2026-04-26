@@ -34,7 +34,7 @@ export default function BidModal({ onClose, onSubmit }) {
       origin: parseFloat(form.origin),
       dest: parseFloat(form.dest),
       transitTime: form.transitTime,
-      validity: form.validity,
+      quoteValidity: form.validity
     });
     setLoading(false);
     if (ok) {
