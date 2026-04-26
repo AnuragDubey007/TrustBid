@@ -21,19 +21,19 @@
 
 ## 📋 Table of Contents
 
-- [Overview](#overview)
-- [Key Features](#key-features)
-- [Live Demo](#live-demo)
-- [High-Level Design (HLD)](#high-level-design-hld)
-- [Database Schema](#database-schema-design)
-- [Tech Stack](#tech-stack)
-- [Design Tradeoffs](#design-tradeoffs)
-- [Installation & Setup](#installation--setup)
-- [API Documentation](#api-documentation)
-- [Advanced Implementation Details](#advanced-implementation-details)
-- [Business Logic](#business-logic--auction-mechanics)
-- [Demo Credentials](#demo-credentials)
-- [Project Structure](#project-structure)
+1. Overview  
+2. Key Features  
+3. Live Demo  
+4. High-Level Design (HLD)  
+5. Database Schema Design  
+6. Tech Stack  
+7. Design Tradeoffs  
+8. Installation & Setup  
+9. API Documentation  
+10. Advanced Implementation Details  
+11. Business Logic & Auction Mechanics  
+12. Demo Credentials  
+13. Project Structure
 
 ---
 
